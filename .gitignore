@@ -1,0 +1,63 @@
+### Visual Studio临时文件和生成结果 ###
+# 编译输出目录
+**/[Bb]in/
+**/[Oo]bj/
+
+# Visual Studio用户选项和缓存
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# 代码分析临时文件
+*.lastcodeanalysisres.xml
+
+### NuGet包管理 ###
+# NuGet生成的目录和文件
+**/packages/
+**/NuGet.exe
+*.nupkg
+.nuget/
+
+# 包还原时生成的锁定文件
+packages.lock.json
+
+### 编译生成文件和日志 ###
+# 二进制文件和调试符号
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.lib
+*.exp
+
+# 发布配置和结果
+pubxml
+*.pubxml.user
+publish/
+
+### 测试相关 ###
+# 单元测试结果和缓存
+TestResults/
+*.trx
+*.TemporaryKey.pfx
+
+### IDE和工具临时文件 ###
+# ReSharper缓存
+_ReSharper.*/
+*.sln.iml
+
+# VS Code临时文件（若混合使用）
+.vscode/
+
+### 其他临时文件 ###
+# 日志和备份文件
+*.log
+*.bak
+*.tmp
+
+# 本地配置文件（按需取消注释）
+# appsettings.local.json
+# *.local.config
