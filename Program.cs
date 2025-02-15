@@ -1,82 +1,110 @@
 ﻿using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Common.Input;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
 
-namespace ShaderExample
+namespace LocalTest
 {
-    public class Program
+    class Window : GameWindow
     {
-        private  static  Shader _shader=null!;
-        private static int _vertexArrayObject; // VAO
-        private static int _vertexBufferObject; // VBO
-        private static void Main(string[] args)
+        static void Main(string[] args)
         {
-            var nativeWindowSettings = new NativeWindowSettings()
+            Vector2 a = (1E-45f, -5.9167414f);
+            Vector2 b = (1E-45f, 13.882292f);
+            Vector2 c = Vector2.Slerp(a, b, 0);
+            Vector2 d = Vector2.Slerp(a, b, 1);
+
+            var res = Vector3.Elerp((1e-45f, 1, 1), (1, 1, 4), 0.3f);
+
+            GameWindowSettings gwSettings = new GameWindowSettings()
             {
-                ClientSize = new Vector2i(800, 600),
-                Title = "OpenTK Shader Example"
+                UpdateFrequency = 250,
             };
 
-            using (var window = new GameWindow(GameWindowSettings.Default, nativeWindowSettings))
+            NativeWindowSettings nwSettings = new NativeWindowSettings()
             {
-                window.Load += OnLoad;
-                window.RenderFrame += (FrameEventArgs e) => OnRenderFrame(window, e);
+                API = ContextAPI.OpenGL,
+                APIVersion = new Version(3, 3),
+                AutoLoadBindings = true,
+                Flags = ContextFlags.Debug | ContextFlags.ForwardCompatible,
+                IsEventDriven = false,
+                Profile = ContextProfile.Core,
+                ClientSize = (800, 600),
+                StartFocused = true,
+                StartVisible = true,
+                Title = "Local OpenTK Test",
+                WindowBorder = WindowBorder.Resizable,
+                WindowState = WindowState.Normal,
+            };
+
+            using (Window window = new Window(gwSettings, nwSettings))
+            {
                 window.Run();
             }
         }
-        private static void OnLoad()
+
+        public Window(GameWindowSettings gwSettings, NativeWindowSettings nwSettings) : base(gwSettings, nwSettings)
         {
-            // Use relative paths to the shaders
-            string vertexPath = Path.Combine("shaders", "vertex_shader.glsl");
-            string fragmentPath = Path.Combine("shaders", "fragment_shader.glsl");
-
-            _shader = new Shader(vertexPath, fragmentPath);
-            // 定义顶点数据（一个简单的三角形）
-            float[] vertices = {
-                -0.5f, -0.5f, 0.0f, // 左下角
-                 0.5f, -0.5f, 0.0f, // 右下角
-                 0.0f,  0.5f, 0.0f  // 顶部
-            };
-
-            // 生成并绑定 VAO
-            _vertexArrayObject = GL.GenVertexArray();
-            GL.BindVertexArray(_vertexArrayObject);
-
-            // 生成并绑定 VBO
-            _vertexBufferObject = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
-
-            // 将顶点数据复制到 VBO
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-
-            // 设置顶点属性指针
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-            GL.EnableVertexAttribArray(0);
-
-            // 解绑 VBO 和 VAO
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindVertexArray(0);
         }
-        private static void OnRenderFrame(GameWindow window, FrameEventArgs args)
+
+        protected override void OnLoad()
         {
-            // 清空屏幕
+            base.OnLoad();
+
+            string ver = GLFW.GetVersionString();
+            Console.WriteLine($"GLFW version: {ver}");
+        }
+
+        protected override void OnUnload()
+        {
+            base.OnUnload();
+        }
+
+        protected override void OnUpdateFrame(FrameEventArgs args)
+        {
+            base.OnUpdateFrame(args);
+        }
+
+        float time = 0;
+
+        protected override void OnRenderFrame(FrameEventArgs args)
+        {
+            base.OnRenderFrame(args);
+
+            const float CycleTime = 8.0f;
+
+            time += (float)args.Time;
+            if (time > CycleTime) time = 0;
+
+            Color4 color = Color4.FromHsv(new Vector4(time / CycleTime, 1, 1, 1));
+
+            GL.ClearColor(color);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            // 使用着色器程序
-            _shader?.Use();
+            SwapBuffers();
+        }
 
-            // 绑定 VAO
-            GL.BindVertexArray(_vertexArrayObject);
+        protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
+        {
+            base.OnFramebufferResize(e);
 
-            // 绘制三角形
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+            GL.Viewport(0, 0, e.Width, e.Height);
+        }
 
-            // 解绑 VAO
-            GL.BindVertexArray(0);
+        protected override void OnResize(ResizeEventArgs e)
+        {
+            base.OnResize(e);
+        }
 
-            // 交换缓冲区
-            window.SwapBuffers();
+        protected override void OnMove(WindowPositionEventArgs e)
+        {
+            base.OnMove(e);
         }
     }
 }
