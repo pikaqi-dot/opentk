@@ -1,130 +1,110 @@
-﻿using System;
+﻿using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Common.Input;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
-using OpenTK.Compute.OpenCL;
+using System.Threading;
 
-namespace OpenToolkit.OpenCL.Tests
+namespace LocalTest
 {
-    class Program
+    class Window : GameWindow
     {
         static void Main(string[] args)
         {
-            //ToGrayscale.ConvertToGrayscale("image.jpg");
+            Vector2 a = (1E-45f, -5.9167414f);
+            Vector2 b = (1E-45f, 13.882292f);
+            Vector2 c = Vector2.Slerp(a, b, 0);
+            Vector2 d = Vector2.Slerp(a, b, 1);
 
-            //Get the ids of available opencl platforms
+            var res = Vector3.Elerp((1e-45f, 1, 1), (1, 1, 4), 0.3f);
 
-            CL.GetPlatformIds(0, null, out uint platformCount);
-            CLPlatform[] platformIds = new CLPlatform[platformCount];
-            CL.GetPlatformIds(platformCount, platformIds, out _);
-
-            Console.WriteLine(platformIds.Length);
-            foreach (CLPlatform platform in platformIds)
+            GameWindowSettings gwSettings = new GameWindowSettings()
             {
-                Console.WriteLine(platform.Handle);
-                CL.GetPlatformInfo(platform, PlatformInfo.Name, out byte[] val);
-            }
+                UpdateFrequency = 250,
+            };
 
-            //Get the device ids for each platform
-            foreach (IntPtr platformId in platformIds)
+            NativeWindowSettings nwSettings = new NativeWindowSettings()
             {
-                CL.GetDeviceIds(new CLPlatform(platformId), DeviceType.All, out CLDevice[] deviceIds);
+                API = ContextAPI.OpenGL,
+                APIVersion = new Version(3, 3),
+                AutoLoadBindings = true,
+                Flags = ContextFlags.Debug | ContextFlags.ForwardCompatible,
+                IsEventDriven = false,
+                Profile = ContextProfile.Core,
+                ClientSize = (800, 600),
+                StartFocused = true,
+                StartVisible = true,
+                Title = "Local OpenTK Test",
+                WindowBorder = WindowBorder.Resizable,
+                WindowState = WindowState.Normal,
+            };
 
-                CLContext context = CL.CreateContext(IntPtr.Zero, (uint)deviceIds.Length, deviceIds, IntPtr.Zero,
-                    IntPtr.Zero, out CLResultCode result);
-                if (result != CLResultCode.Success)
-                {
-                    throw new Exception("The context couldn't be created.");
-                }
-
-                string code = @"
-                __kernel void add(__global float* A, __global float* B,__global float* result, const float mul)
-                {
-                    int i = get_global_id(0);
-                    result[i] = (A[i] + B[i])*mul;
-                }";
-
-                CLProgram program = CL.CreateProgramWithSource(context, code, out result);
-
-                CL.BuildProgram(program, (uint)deviceIds.Length, deviceIds, null, IntPtr.Zero, IntPtr.Zero);
-
-                CLKernel kernel = CL.CreateKernel(program, "add", out result);
-
-                int arraySize = 20;
-                float[] A = new float[arraySize];
-                float[] B = new float[arraySize];
-
-                for (int i = 0; i < arraySize; i++)
-                {
-                    A[i] = 1;
-                    B[i] = i;
-                }
-
-                CLBuffer bufferA = CL.CreateBuffer(context, MemoryFlags.ReadOnly | MemoryFlags.CopyHostPtr, A,
-                    out result);
-                CLBuffer bufferB = CL.CreateBuffer(context, MemoryFlags.ReadOnly | MemoryFlags.CopyHostPtr, B,
-                    out result);
-
-                float[] pattern = new float[] { 1, 3, 5, 7 };
-
-                CLBuffer resultBuffer = new CLBuffer(CL.CreateBuffer(context, MemoryFlags.WriteOnly,
-                    new UIntPtr((uint)(arraySize * sizeof(float))), IntPtr.Zero, out result));
-
-                try
-                {
-                    CL.SetKernelArg(kernel, 0, bufferA);
-                    CL.SetKernelArg(kernel, 1, bufferB);
-                    CL.SetKernelArg(kernel, 2, resultBuffer);
-                    CL.SetKernelArg(kernel, 3, -1f);
-
-                    CLCommandQueue commandQueue = new CLCommandQueue(
-                        CL.CreateCommandQueueWithProperties(context, deviceIds[0], IntPtr.Zero, out result));
-
-                    CL.EnqueueFillBuffer(commandQueue, bufferB, pattern, UIntPtr.Zero, (UIntPtr)(arraySize * sizeof(float)), null,
-                        out _);
-
-                    //CL.EnqueueNDRangeKernel(commandQueue, kernel, 1, null, new UIntPtr[] {new UIntPtr((uint)A.Length)},
-                    //	null, 0, null,  out CLEvent eventHandle);
-
-                    CL.EnqueueNDRangeKernel(commandQueue, kernel, 1, null, new UIntPtr[] { new UIntPtr((uint)A.Length) },
-                        null, 0, null, out CLEvent eventHandle);
-
-
-                    CL.Finish(commandQueue);
-
-                    CL.SetEventCallback(eventHandle, (int)CommandExecutionStatus.Complete, (waitEvent, data) =>
-                    {
-                        float[] resultValues = new float[arraySize];
-                        CL.EnqueueReadBuffer(commandQueue, resultBuffer, true, UIntPtr.Zero, resultValues, null, out _);
-
-                        StringBuilder line = new StringBuilder();
-                        foreach (float res in resultValues)
-                        {
-                            line.Append(res);
-                            line.Append(", ");
-                        }
-
-                        Console.WriteLine(line.ToString());
-                    });
-
-                    //get rid of the buffers because we no longer need them
-                    CL.ReleaseMemoryObject(bufferA);
-                    CL.ReleaseMemoryObject(bufferB);
-                    CL.ReleaseMemoryObject(resultBuffer);
-
-                    //Release the program kernels and queues
-                    CL.ReleaseProgram(program);
-                    CL.ReleaseKernel(kernel);
-                    CL.ReleaseCommandQueue(commandQueue);
-                    CL.ReleaseContext(context);
-                    CL.ReleaseEvent(eventHandle);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                    throw;
-                }
-
+            using (Window window = new Window(gwSettings, nwSettings))
+            {
+                window.Run();
             }
+        }
+
+        public Window(GameWindowSettings gwSettings, NativeWindowSettings nwSettings) : base(gwSettings, nwSettings)
+        {
+        }
+
+        protected override void OnLoad()
+        {
+            base.OnLoad();
+
+            string ver = GLFW.GetVersionString();
+            Console.WriteLine($"GLFW version: {ver}");
+        }
+
+        protected override void OnUnload()
+        {
+            base.OnUnload();
+        }
+
+        protected override void OnUpdateFrame(FrameEventArgs args)
+        {
+            base.OnUpdateFrame(args);
+        }
+
+        float time = 0;
+
+        protected override void OnRenderFrame(FrameEventArgs args)
+        {
+            base.OnRenderFrame(args);
+
+            const float CycleTime = 8.0f;
+
+            time += (float)args.Time;
+            if (time > CycleTime) time = 0;
+
+            Color4 color = Color4.FromHsv(new Vector4(time / CycleTime, 1, 1, 1));
+
+            GL.ClearColor(color);
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            SwapBuffers();
+        }
+
+        protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
+        {
+            base.OnFramebufferResize(e);
+
+            GL.Viewport(0, 0, e.Width, e.Height);
+        }
+
+        protected override void OnResize(ResizeEventArgs e)
+        {
+            base.OnResize(e);
+        }
+
+        protected override void OnMove(WindowPositionEventArgs e)
+        {
+            base.OnMove(e);
         }
     }
 }
