@@ -1,55 +1,26 @@
-﻿using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Common.Input;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Threading;
 
-namespace LocalTest
+namespace OpenTKExample
 {
-    class Window : GameWindow
+    class Game : GameWindow
     {
-        static void Main(string[] args)
+        private int _vertexArrayObject;
+        private int _vertexBufferObject;
+        private int _shaderProgram;
+
+        private readonly float[] _vertices =
         {
-            Vector2 a = (1E-45f, -5.9167414f);
-            Vector2 b = (1E-45f, 13.882292f);
-            Vector2 c = Vector2.Slerp(a, b, 0);
-            Vector2 d = Vector2.Slerp(a, b, 1);
+            // 位置         // 颜色
+             0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // 右下
+            -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f, // 左下
+             0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f  // 顶部
+        };
 
-            var res = Vector3.Elerp((1e-45f, 1, 1), (1, 1, 4), 0.3f);
-
-            GameWindowSettings gwSettings = new GameWindowSettings()
-            {
-                UpdateFrequency = 250,
-            };
-
-            NativeWindowSettings nwSettings = new NativeWindowSettings()
-            {
-                API = ContextAPI.OpenGL,
-                APIVersion = new Version(3, 3),
-                AutoLoadBindings = true,
-                Flags = ContextFlags.Debug | ContextFlags.ForwardCompatible,
-                IsEventDriven = false,
-                Profile = ContextProfile.Core,
-                ClientSize = (800, 600),
-                StartFocused = true,
-                StartVisible = true,
-                Title = "Local OpenTK Test",
-                WindowBorder = WindowBorder.Resizable,
-                WindowState = WindowState.Normal,
-            };
-
-            using (Window window = new Window(gwSettings, nwSettings))
-            {
-                window.Run();
-            }
-        }
-
-        public Window(GameWindowSettings gwSettings, NativeWindowSettings nwSettings) : base(gwSettings, nwSettings)
+        public Game(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+            : base(gameWindowSettings, nativeWindowSettings)
         {
         }
 
@@ -57,54 +28,122 @@ namespace LocalTest
         {
             base.OnLoad();
 
-            string ver = GLFW.GetVersionString();
-            Console.WriteLine($"GLFW version: {ver}");
-        }
+            // 创建 VAO 和 VBO
+            _vertexArrayObject = GL.GenVertexArray();
+            _vertexBufferObject = GL.GenBuffer();
 
-        protected override void OnUnload()
-        {
-            base.OnUnload();
-        }
+            // 绑定 VAO 和 VBO
+            GL.BindVertexArray(_vertexArrayObject);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
 
-        protected override void OnUpdateFrame(FrameEventArgs args)
-        {
-            base.OnUpdateFrame(args);
-        }
+            // 将顶点数据复制到 VBO
+            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
 
-        float time = 0;
+            // 设置顶点属性指针
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
+            GL.EnableVertexAttribArray(0);
+
+            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
+            GL.EnableVertexAttribArray(1);
+
+            // 创建着色器程序
+            string vertexShaderSource = @"
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+out vec3 ourColor;
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    ourColor = aColor;
+}";
+
+            string fragmentShaderSource = @"
+#version 330 core
+out vec4 FragColor;
+in vec3 ourColor;
+void main()
+{
+    FragColor = vec4(ourColor, 1.0f);
+}";
+
+            int vertexShader = GL.CreateShader(ShaderType.VertexShader);
+            GL.ShaderSource(vertexShader, vertexShaderSource);
+            GL.CompileShader(vertexShader);
+
+            int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
+            GL.ShaderSource(fragmentShader, fragmentShaderSource);
+            GL.CompileShader(fragmentShader);
+
+            _shaderProgram = GL.CreateProgram();
+            GL.AttachShader(_shaderProgram, vertexShader);
+            GL.AttachShader(_shaderProgram, fragmentShader);
+            GL.LinkProgram(_shaderProgram);
+
+            GL.DeleteShader(vertexShader);
+            GL.DeleteShader(fragmentShader);
+        }
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
             base.OnRenderFrame(args);
 
-            const float CycleTime = 8.0f;
+            // 清除颜色缓冲区
+            GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+            GL.Clear(ClearBufferMask.ColorBufferBit);
 
-            time += (float)args.Time;
-            if (time > CycleTime) time = 0;
+            // 使用着色器程序
+            GL.UseProgram(_shaderProgram);
 
-            Color4 color = Color4.FromHsv(new Vector4(time / CycleTime, 1, 1, 1));
+            // 绑定 VAO
+            GL.BindVertexArray(_vertexArrayObject);
 
-            GL.ClearColor(color);
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            // 绘制三角形
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 
             SwapBuffers();
         }
 
-        protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
+        protected override void OnUpdateFrame(FrameEventArgs args)
         {
-            base.OnFramebufferResize(e);
+            base.OnUpdateFrame(args);
 
-            GL.Viewport(0, 0, e.Width, e.Height);
+            var input = KeyboardState;
+
+            if (input.IsKeyDown(Keys.Escape))
+            {
+                Close();
+            }
         }
 
-        protected override void OnResize(ResizeEventArgs e)
+        protected override void OnUnload()
         {
-            base.OnResize(e);
-        }
+            // 删除 VAO、VBO 和着色器程序
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindVertexArray(0);
+            GL.DeleteBuffer(_vertexBufferObject);
+            GL.DeleteVertexArray(_vertexArrayObject);
+            GL.DeleteProgram(_shaderProgram);
 
-        protected override void OnMove(WindowPositionEventArgs e)
+            base.OnUnload();
+        }
+    }
+
+    class Program
+    {
+        static void Main()
         {
-            base.OnMove(e);
+            var gameWindowSettings = GameWindowSettings.Default;
+            var nativeWindowSettings = new NativeWindowSettings()
+            {
+                Size = new OpenTK.Mathematics.Vector2i(800, 600),
+                Title = "OpenTK Example"
+            };
+
+            using (var game = new Game(gameWindowSettings, nativeWindowSettings))
+            {
+                game.Run();
+            }
         }
     }
 }
